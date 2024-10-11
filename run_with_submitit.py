@@ -89,7 +89,7 @@ def main():
         # Below are cluster dependent parameters
         slurm_partition=partition,
         slurm_signal_delay_s=120,
-        
+        slurm_additional_parameters={"nice": '0'},
         **kwargs
     )
     executor.update_parameters(name=args.job_name)

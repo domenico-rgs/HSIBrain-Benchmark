@@ -94,8 +94,8 @@ def get_args_parser():
     
     # Dataset parameters
     parser.add_argument('--db-name', default='madrid', type=str, help='dataset name')
-    parser.add_argument('--data-path', default='/home/domenico/Desktop/dataset_experiments/CUBES_cal_alt/', type=str, help='dataset path') #/home/domenico/Desktop/dataset_experiments/CUBES_cal_alt/
-    parser.add_argument('--gt-path', default='/home/domenico/Desktop/dataset_experiments/HSI_GT/npyFiles/', type=str, help='dataset path') #/home/domenico/Desktop/dataset_experiments/HSI_GT/npyFiles/
+    parser.add_argument('--data-path', default='/home/ragusa/ViT-G/datasets/Madrid/hsi/', type=str, help='dataset path') #/home/domenico/Desktop/dataset_experiments/CUBES_cal_alt/
+    parser.add_argument('--gt-path', default='/home/ragusa/ViT-G/datasets/Madrid/gt/', type=str, help='dataset path') #/home/domenico/Desktop/dataset_experiments/HSI_GT/npyFiles/
     parser.add_argument('--train_pcg', default='0.7', type=float, help='Train set split percentage')
     parser.add_argument('--val_pcg', default='0.2', type=float, help='Validation set split percentage')
     parser.add_argument('--densify_labels', default=[2,3], nargs='+', type=int, help="Labels to densify")
@@ -105,7 +105,6 @@ def get_args_parser():
     parser.add_argument('--distributed', action='store_true', default=False, help='Enabling distributed training')
     parser.add_argument('--world-size', default=1, type=int, help='number of distributed processes')
     parser.add_argument('--dist-eval', action='store_true', default=False, help='Enabling distributed evaluation')
-    parser.add_argument('--local-rank', default=0, type=int)
 
     # Mlflow parameters
     parser.add_argument('--sys-metrics', default=False, type=bool, help='Log system metrics')
@@ -126,8 +125,8 @@ def main(args):
     if tools.is_main_process():
         experiment_name = args.model_type
         experiment_description = f'{args.model_type} for brain tumor classification'
-        run_name = f'{args.model_type}-{args.db_name}-run-{datetime.now().strftime("%Y%m%d_%H%M%S")}'
-        run_description = f'Analyze the behavior of the {args.model_type} using a recent version of the Madrid HSI dataset.'
+        run_name = f'{args.job_name}_{args.model_type}-{args.db_name}-run-{datetime.now().strftime("%Y%m%d_%H%M%S")}' #args.job_name if run with submitit
+        run_description = f'Analyze the behavior of the {args.model_type} using a recent version of the {args.db_name} HSI dataset.'
         mlflow.set_experiment(experiment_name=experiment_name)
         mlflow.set_experiment_tag('mlflow.note.content', experiment_description)
 
