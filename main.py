@@ -26,6 +26,7 @@ import numpy as np
 from models.ViT import ViT
 from models.vim.models_mamba import VisionMamba
 from models.HSIMamba import HSIClassificationMambaModel
+from models.hit import HiT, ConvPermuteMLP
 
 import models.extraLayers
 
@@ -38,13 +39,14 @@ import matplotlib.pyplot as plt
 import mlflow
 
 warnings.filterwarnings("ignore", category=UserWarning, module='torch.optim.lr_scheduler') #suppressing warning due to lr_scheduler accing current lr
+
 mlflow.set_tracking_uri(Path(f"/home/{os.getenv("USER")}/mlruns").as_uri())
 
 def get_args_parser():
     parser = argparse.ArgumentParser('Training and evaluation script', add_help=False)
 
     # Basic parameters
-    parser.add_argument('--model-type', default='HSIMamba', type=str, help='Model type (default: "ViT")')
+    parser.add_argument('--model-type', default='HiT', type=str, help='Model type (default: "ViT")')
     parser.add_argument('--batch-size', default=512, type=int, help='Batch size') #8192 to be used with LARS
     parser.add_argument('--epochs', default=1, type=int, help='Total epochs to run')
     parser.add_argument('--device', default='cuda', help='device to use for training / testing')
@@ -59,7 +61,7 @@ def get_args_parser():
 
     # ViT/ViM parameters
     parser.add_argument('--blocks', default=4, type=int, help='Number of blocks in the transformer')
-    parser.add_argument('--patch-size', default=1, type=int, help='Patch size')
+    parser.add_argument('--patch-size', default=9, type=int, help='Patch size')
     parser.add_argument('--embed-dim', default=64, type=int, help='Embeddings dimension')
     parser.add_argument('--classes', default=4, type=int, help='Number of classes to predict (default: 4)')
     parser.add_argument('--drop', type=float, default=0.1, metavar='PCT', help='Dropout rate (default: 0.1)')
@@ -84,7 +86,7 @@ def get_args_parser():
 
     # Learning rate schedule parameters
     parser.add_argument('--sched', default='plateau', type=str, metavar='SCHEDULER', help='LR scheduler (default: "plateau"')
-    parser.add_argument('--lr', type=float, default=5e-4, metavar='LR', help='learning rate (default: 5e-4)')
+    parser.add_argument('--lr', type=float, default=1e-3, metavar='LR', help='learning rate (default: 5e-4)')
     parser.add_argument('--warmup-lr', type=float, default=1e-6, metavar='LR', help='warmup learning rate (default: 1e-6)')
     parser.add_argument('--decay-epochs', type=float, default=30, metavar='N', help='epoch interval to decay LR')
     parser.add_argument('--warmup-epochs', type=int, default=5, metavar='N', help='epochs to warmup LR, if scheduler supports')
@@ -94,8 +96,8 @@ def get_args_parser():
     
     # Dataset parameters
     parser.add_argument('--db-name', default='madrid', type=str, help='dataset name')
-    parser.add_argument('--data-path', default='/home/ragusa/ViT-G/datasets/Madrid/hsi/', type=str, help='dataset path') #/home/domenico/Desktop/dataset_experiments/CUBES_cal_alt/
-    parser.add_argument('--gt-path', default='/home/ragusa/ViT-G/datasets/Madrid/gt/', type=str, help='dataset path') #/home/domenico/Desktop/dataset_experiments/HSI_GT/npyFiles/
+    parser.add_argument('--data-path', default='/home/domenico/Desktop/test/datasets/Madrid/hsi/', type=str, help='dataset path') #/home/domenico/Desktop/dataset_experiments/CUBES_cal_alt/
+    parser.add_argument('--gt-path', default='/home/domenico/Desktop/test/datasets/Madrid/gt/', type=str, help='dataset path') #/home/domenico/Desktop/dataset_experiments/HSI_GT/npyFiles/
     parser.add_argument('--train_pcg', default='0.7', type=float, help='Train set split percentage')
     parser.add_argument('--val_pcg', default='0.2', type=float, help='Validation set split percentage')
     parser.add_argument('--densify_labels', default=[2,3], nargs='+', type=int, help="Labels to densify")
@@ -121,12 +123,13 @@ def main(args):
     tools.init_distributed_mode(args)
     temp_dir = Path(f"./tmp") #cannot be mktmpdir because of distributed training, otherwise other threads not know where the trained model is when finished
 
+    experiment_name = args.model_type
+    experiment_description = f'{args.model_type} for brain tumor classification'
+    run_name = f'{args.job_name}_{args.model_type}-{args.db_name}-run-{datetime.now().strftime("%Y%m%d_%H%M%S")}' #args.job_name if run with submitit
+    run_description = f'Analyze the behavior of the {args.model_type} using a recent version of the {args.db_name} HSI dataset.'
+
     #log
     if tools.is_main_process():
-        experiment_name = args.model_type
-        experiment_description = f'{args.model_type} for brain tumor classification'
-        run_name = f'{args.job_name}_{args.model_type}-{args.db_name}-run-{datetime.now().strftime("%Y%m%d_%H%M%S")}' #args.job_name if run with submitit
-        run_description = f'Analyze the behavior of the {args.model_type} using a recent version of the {args.db_name} HSI dataset.'
         mlflow.set_experiment(experiment_name=experiment_name)
         mlflow.set_experiment_tag('mlflow.note.content', experiment_description)
 
@@ -219,6 +222,14 @@ def main(args):
         )
     elif args.model_type == 'MamTrans':
         print('Model not yet implemented')
+    elif args.model_type == 'HiT':
+        model = nn.Sequential(
+            models.extraLayers.AddDimensionLayer(1),
+            HiT([4,3,14,3], img_size=args.patch_size, patch_size=3, in_chans=cube_dims[2], num_classes=4,
+                 embed_dims=[56, 56, 88, 88], transitions=[False, True, False, False], segment_dim=[8,8,4,4], mlp_ratios=[3,3,3,3], skip_lam=1.0,
+                 qkv_bias=False, qk_scale=None, drop_rate=0.1, attn_drop_rate=0.1, drop_path_rate=0.1,
+                 norm_layer=nn.LayerNorm, mlp_fn=ConvPermuteMLP) #Doesn't work for single pixels, only for patches to capturre spatial information
+        )
     else:
         print('Model not found')
         exit()
@@ -348,11 +359,19 @@ def main(args):
             model.patch_embed = models.extraLayers.PatchEmbedding(args.patch_size, args.embed_dim)
         elif args.model_type == 'HSIMamba':
             model = nn.Sequential(
-            models.extraLayers.PermuteLayer(0,2,3,1),
-            HSIClassificationMambaModel(spatial_dim=args.patch_size, num_bands=cube_dims[2], hidden_dim=args.embed_dim, output_dim=args.output_dim, delta_param_init=args.deltat, num_classes=args.classes)
+                models.extraLayers.PermuteLayer(0,2,3,1),
+                HSIClassificationMambaModel(spatial_dim=args.patch_size, num_bands=cube_dims[2], hidden_dim=args.embed_dim, output_dim=args.output_dim, delta_param_init=args.deltat, num_classes=args.classes)
             )
         elif args.model_type == 'MamTrans':
             print('Model not yet implemented')
+        elif args.model_type == 'HiT':
+            model = nn.Sequential(
+                models.extraLayers.AddDimensionLayer(1),
+                HiT([4,3,14,3], img_size=args.patch_size, patch_size=3, in_chans=cube_dims[2], num_classes=4,
+                    embed_dims=[56, 56, 88, 88], transitions=[False, True, False, False], segment_dim=[8,8,4,4], mlp_ratios=[3,3,3,3], skip_lam=1.0,
+                    qkv_bias=False, qk_scale=None, drop_rate=0.1, attn_drop_rate=0.1, drop_path_rate=0.1,
+                    norm_layer=nn.LayerNorm, mlp_fn=ConvPermuteMLP)
+            )
         else:
             print('Model not found')
             exit()
