@@ -1,11 +1,12 @@
 #!/bin/bash
 #conda activate ModExperiments
 
-EPOCHS=250
+
 PATCHSIZE=3
 BATCHSIZE=8192
 
 #Madrid
+EPOCHS=250
 DATASET='madrid'
 DPATH='/home/ragusa/ModelExperiments/datasets/Madrid/hsi/'
 GPATH='/home/ragusa/ModelExperiments/datasets/Madrid/gt/'
@@ -22,6 +23,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 run_with_submitit.py --model HiT --
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 run_with_submitit.py --model SSMamba --batch-size $BATCHSIZE --epochs $EPOCHS --world-size 8 --num-workers 1 --ngpus 8 --nodes 1 --job-name 'SSMamba-M-P3' --comment 'SSMamba training test' --db-name $DATASET --data-path $DPATH --gt-path $GPATH --patch-size $PATCHSIZE --channels $CHANN --distributed
 
 #Las Palmas
+EPOCHS=500
 DATASET='LP'
 DPATH='/home/ragusa/ModelExperiments/datasets/LP/hsi/'
 GPATH='/home/ragusa/ModelExperiments/datasets/LP/gt/'
@@ -42,6 +44,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 run_with_submitit.py --model SSMamb
 PATCHSIZE=7
 
 #Madrid
+EPOCHS=250
 DATASET='madrid'
 DPATH='/home/ragusa/ModelExperiments/datasets/Madrid/hsi/'
 GPATH='/home/ragusa/ModelExperiments/datasets/Madrid/gt/'
@@ -58,6 +61,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 run_with_submitit.py --model HiT --
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 run_with_submitit.py --model SSMamba --batch-size $BATCHSIZE --epochs $EPOCHS --world-size 8 --num-workers 1 --ngpus 8 --nodes 1 --job-name 'SSMamba-M-P7' --comment 'SSMamba training test' --db-name $DATASET --data-path $DPATH --gt-path $GPATH --patch-size $PATCHSIZE --channels $CHANN --distributed
 
 #Las Palmas
+EPOCHS=500
 DATASET='LP'
 DPATH='/home/ragusa/ModelExperiments/datasets/LP/hsi/'
 GPATH='/home/ragusa/ModelExperiments/datasets/LP/gt/'
@@ -78,6 +82,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 run_with_submitit.py --model SSMamb
 PATCHSIZE=9
 
 #Madrid
+EPOCHS=250
 DATASET='madrid'
 DPATH='/home/ragusa/ModelExperiments/datasets/Madrid/hsi/'
 GPATH='/home/ragusa/ModelExperiments/datasets/Madrid/gt/'
@@ -94,6 +99,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 run_with_submitit.py --model HiT --
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 run_with_submitit.py --model SSMamba --batch-size $BATCHSIZE --epochs $EPOCHS --world-size 8 --num-workers 1 --ngpus 8 --nodes 1 --job-name 'SSMamba-M-P9' --comment 'SSMamba training test' --db-name $DATASET --data-path $DPATH --gt-path $GPATH --patch-size $PATCHSIZE --channels $CHANN --distributed
 
 #Las Palmas
+EPOCHS=500
 DATASET='LP'
 DPATH='/home/ragusa/ModelExperiments/datasets/LP/hsi/'
 GPATH='/home/ragusa/ModelExperiments/datasets/LP/gt/'
@@ -114,6 +120,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 run_with_submitit.py --model SSMamb
 PATCHSIZE=11
 
 #Madrid
+EPOCHS=250
 DATASET='madrid'
 DPATH='/home/ragusa/ModelExperiments/datasets/Madrid/hsi/'
 GPATH='/home/ragusa/ModelExperiments/datasets/Madrid/gt/'
@@ -130,6 +137,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 run_with_submitit.py --model HiT --
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 run_with_submitit.py --model SSMamba --batch-size $BATCHSIZE --epochs $EPOCHS --world-size 8 --num-workers 1 --ngpus 8 --nodes 1 --job-name 'SSMamba-M-P11' --comment 'SSMamba training test' --db-name $DATASET --data-path $DPATH --gt-path $GPATH --patch-size $PATCHSIZE --channels $CHANN --distributed
 
 #Las Palmas
+EPOCHS=500
 DATASET='LP'
 DPATH='/home/ragusa/ModelExperiments/datasets/LP/hsi/'
 GPATH='/home/ragusa/ModelExperiments/datasets/LP/gt/'
@@ -150,6 +158,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 run_with_submitit.py --model SSMamb
 PATCHSIZE=1
 
 #Madrid
+EPOCHS=250
 DATASET='madrid'
 DPATH='/home/ragusa/ModelExperiments/datasets/Madrid/hsi/'
 GPATH='/home/ragusa/ModelExperiments/datasets/Madrid/gt/'
@@ -166,6 +175,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 run_with_submitit.py --model HiT --
 #CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 run_with_submitit.py --model SSMamba --batch-size $BATCHSIZE --epochs $EPOCHS --world-size 8 --num-workers 1 --ngpus 8 --nodes 1 --job-name 'SSMamba-M-P1' --comment 'SSMamba training test' --db-name $DATASET --data-path $DPATH --gt-path $GPATH --patch-size $PATCHSIZE --channels $CHANN --distributed
 
 #Las Palmas
+EPOCHS=500
 DATASET='LP'
 DPATH='/home/ragusa/ModelExperiments/datasets/LP/hsi/'
 GPATH='/home/ragusa/ModelExperiments/datasets/LP/gt/'
@@ -183,25 +193,25 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 run_with_submitit.py --model HiT --
 
 ##################################################################################################
 #TEST HSIMAMBA with more epochs
-DATASET='LP'
-DPATH='/home/ragusa/ModelExperiments/datasets/LP/hsi/'
-GPATH='/home/ragusa/ModelExperiments/datasets/LP/gt/'
-CHANN=128
+#DATASET='LP'
+#DPATH='/home/ragusa/ModelExperiments/datasets/LP/hsi/'
+#GPATH='/home/ragusa/ModelExperiments/datasets/LP/gt/'
+#CHANN=128
 
-EPOCHS=500
+#EPOCHS=500
 
-PATCHSIZE=3
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 run_with_submitit.py --model HSIMamba --batch-size $BATCHSIZE --epochs $EPOCHS --world-size 8 --num-workers 1 --ngpus 8 --nodes 1 --job-name 'HSIMamba-LP-P3' --comment 'HSIMamba training test' --db-name $DATASET --data-path $DPATH --gt-path $GPATH --patch-size $PATCHSIZE --channels $CHANN --distributed
+#PATCHSIZE=3
+#CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 run_with_submitit.py --model HSIMamba --batch-size $BATCHSIZE --epochs $EPOCHS --world-size 8 --num-workers 1 --ngpus 8 --nodes 1 --job-name 'HSIMamba-LP-P3' --comment 'HSIMamba training test' --db-name $DATASET --data-path $DPATH --gt-path $GPATH --patch-size $PATCHSIZE --channels $CHANN --distributed
 
-PATCHSIZE=7
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 run_with_submitit.py --model HSIMamba --batch-size $BATCHSIZE --epochs $EPOCHS --world-size 8 --num-workers 1 --ngpus 8 --nodes 1 --job-name 'HSIMamba-LP-P7' --comment 'HSIMamba training test' --db-name $DATASET --data-path $DPATH --gt-path $GPATH --patch-size $PATCHSIZE --channels $CHANN --distributed
+#PATCHSIZE=7
+#CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 run_with_submitit.py --model HSIMamba --batch-size $BATCHSIZE --epochs $EPOCHS --world-size 8 --num-workers 1 --ngpus 8 --nodes 1 --job-name 'HSIMamba-LP-P7' --comment 'HSIMamba training test' --db-name $DATASET --data-path $DPATH --gt-path $GPATH --patch-size $PATCHSIZE --channels $CHANN --distributed
 
-PATCHSIZE=9
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 run_with_submitit.py --model HSIMamba --batch-size $BATCHSIZE --epochs $EPOCHS --world-size 8 --num-workers 1 --ngpus 8 --nodes 1 --job-name 'HSIMamba-LP-P9' --comment 'HSIMamba training test' --db-name $DATASET --data-path $DPATH --gt-path $GPATH --patch-size $PATCHSIZE --channels $CHANN --distributed
+#PATCHSIZE=9
+#CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 run_with_submitit.py --model HSIMamba --batch-size $BATCHSIZE --epochs $EPOCHS --world-size 8 --num-workers 1 --ngpus 8 --nodes 1 --job-name 'HSIMamba-LP-P9' --comment 'HSIMamba training test' --db-name $DATASET --data-path $DPATH --gt-path $GPATH --patch-size $PATCHSIZE --channels $CHANN --distributed
 
-PATCHSIZE=11
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 run_with_submitit.py --model HSIMamba --batch-size $BATCHSIZE --epochs $EPOCHS --world-size 8 --num-workers 1 --ngpus 8 --nodes 1 --job-name 'HSIMamba-LP-P11' --comment 'HSIMamba training test' --db-name $DATASET --data-path $DPATH --gt-path $GPATH --patch-size $PATCHSIZE --channels $CHANN --distributed
+#PATCHSIZE=11
+#CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 run_with_submitit.py --model HSIMamba --batch-size $BATCHSIZE --epochs $EPOCHS --world-size 8 --num-workers 1 --ngpus 8 --nodes 1 --job-name 'HSIMamba-LP-P11' --comment 'HSIMamba training test' --db-name $DATASET --data-path $DPATH --gt-path $GPATH --patch-size $PATCHSIZE --channels $CHANN --distributed
 
-PATCHSIZE=1
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 run_with_submitit.py --model HSIMamba --batch-size $BATCHSIZE --epochs $EPOCHS --world-size 8 --num-workers 1 --ngpus 8 --nodes 1 --job-name 'HSIMamba-LP-P1' --comment 'HSIMamba training test' --db-name $DATASET --data-path $DPATH --gt-path $GPATH --patch-size $PATCHSIZE --channels $CHANN --distributed
+#PATCHSIZE=1
+#CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 run_with_submitit.py --model HSIMamba --batch-size $BATCHSIZE --epochs $EPOCHS --world-size 8 --num-workers 1 --ngpus 8 --nodes 1 --job-name 'HSIMamba-LP-P1' --comment 'HSIMamba training test' --db-name $DATASET --data-path $DPATH --gt-path $GPATH --patch-size $PATCHSIZE --channels $CHANN --distributed
 

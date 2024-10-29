@@ -350,7 +350,7 @@ def main(args):
         mlflow.pytorch.log_model(model_to_save, f'{args.model_type}_best_model_{run_name}', signature=signature, registered_model_name=f'best_model_{run_name}')
 
         total_time = time.time() - start_time
-        mlflow.log_param({'total_training_time': total_time})
+        mlflow.log_param('total_training_time',  total_time)
 
     if args.distributed:
         dist.barrier()
@@ -461,9 +461,12 @@ def main(args):
             mlflow.log_artifact(os.path.join(temp_dir,f'{run_name}_{test_image}.png'), run_name)
             mlflow.log_artifact(os.path.join(temp_dir,f'{run_name}_{test_image}_prob.png'), run_name)
 
+
+    if tools.is_main_process():
         mlflow.end_run()
 
     if args.distributed:
+        dist.barrier()
         dist.destroy_process_group()        
 
 if __name__ == '__main__':
