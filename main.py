@@ -162,11 +162,12 @@ def main(args):
     with open(f'image_list_{args.db_name}.json', 'r') as f:
         image_list = json.load(f)
 
+    random.Random(seed).shuffle(image_list)
+
     train_split = int(round(len(image_list)*(args.train_pcg)))
     validation_split = int(round(len(image_list)*(args.val_pcg)))
 
     test_ids = image_list[train_split+validation_split::]
-
     train_val_ids = image_list[:train_split+validation_split]
     random.Random(args.seed).shuffle(train_val_ids)
 
@@ -249,7 +250,7 @@ def main(args):
             HiT([4,3,14,3], img_size=args.patch_size, patch_size=3, in_chans=args.channels, num_classes=4,
                  embed_dims=embed_dims, transitions=[False, True, False, False], segment_dim=[8,8,4,4], mlp_ratios=[3,3,3,3], skip_lam=1.0,
                  qkv_bias=False, qk_scale=None, drop_rate=0.1, attn_drop_rate=0.1, drop_path_rate=0.1,
-                 norm_layer=nn.LayerNorm, mlp_fn=ConvPermuteMLP) #Doesn't work for single pixels, only for patches to capturre spatial information
+                 norm_layer=nn.LayerNorm, mlp_fn=ConvPermuteMLP, large_features=args.large_features) #Doesn't work for single pixels, only for patches to capturre spatial information
         )
     else:
         print('Model not found')
@@ -384,7 +385,7 @@ def main(args):
         model = nn.Sequential(
             models.extraLayers.AddDimensionLayer(1),
             HiT([4,3,14,3], img_size=args.patch_size, patch_size=3, in_chans=args.channels, num_classes=4,
-                embed_dims=[56, 56, 88, 88], transitions=[False, True, False, False], segment_dim=[8,8,4,4], mlp_ratios=[3,3,3,3], skip_lam=1.0,
+                embed_dims=embed_dims, transitions=[False, True, False, False], segment_dim=[8,8,4,4], mlp_ratios=[3,3,3,3], skip_lam=1.0,
                 qkv_bias=False, qk_scale=None, drop_rate=0.1, attn_drop_rate=0.1, drop_path_rate=0.1,
                 norm_layer=nn.LayerNorm, mlp_fn=ConvPermuteMLP)
         )
