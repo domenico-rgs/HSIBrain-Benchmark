@@ -24,11 +24,11 @@ from utils.focal import FocalLoss
 import numpy as np
 
 from models.ViT import ViT
-from models.vim.models_mamba import VisionMamba
-from models.HSIMamba import HSIClassificationMambaModel
+# from models.vim.models_mamba import VisionMamba
+# from models.HSIMamba import HSIClassificationMambaModel
 from models.HiT import HiT, ConvPermuteMLP
-from models.mamtrans.MamTrans import MamTrans
-from models.ssmamba.ssmamba import mamba_SS_model
+# from models.mamtrans.MamTrans import MamTrans
+# from models.ssmamba.ssmamba import mamba_SS_model
 
 import models.extraLayers
 
@@ -36,6 +36,9 @@ from engine import train_epoch, evaluate, test_evaluate
 import utils.tools as tools
 
 import seaborn as sns
+
+import matplotlib
+matplotlib.use('TKAgg')
 import matplotlib.pyplot as plt
 
 import mlflow
@@ -49,11 +52,11 @@ def get_args_parser():
     parser = argparse.ArgumentParser('Training and evaluation script', add_help=False)
 
     # Basic parameters
-    parser.add_argument('--model-type', default='SSMamba', type=str, help='Model type (default: "ViT")')
+    parser.add_argument('--model-type', default='ViT', type=str, help='Model type (default: "ViT")')
     parser.add_argument('--batch-size', default=512, type=int, help='Batch size') #8192 to be used with LARS
     parser.add_argument('--epochs', default=1, type=int, help='Total epochs to run')
     parser.add_argument('--device', default='cuda', help='device to use for training / testing')
-    parser.add_argument('--seed', default=12, type=int)
+    parser.add_argument('--seed', default=0, type=int)
 
     # ViT parameters
     parser.add_argument('--mlp-dim', default=4, type=int, help='Number of features in the mlp')
@@ -67,7 +70,7 @@ def get_args_parser():
     parser.add_argument('--patch-size', default=9, type=int, help='Patch size')
     parser.add_argument('--embed-dim', default=64, type=int, help='Embeddings dimension')
     parser.add_argument('--classes', default=4, type=int, help='Number of classes to predict (default: 4)')
-    parser.add_argument('--drop', type=float, default=0.2, metavar='PCT', help='Dropout rate (default: 0.1)')
+    parser.add_argument('--drop', type=float, default=0.1, metavar='PCT', help='Dropout rate (default: 0.1)')
 
     # HSIMamba parameters
     parser.add_argument('--deltat', default=0.01, type=float, help='Delta parameter for HSIMamba')
@@ -102,10 +105,11 @@ def get_args_parser():
     parser.add_argument('--patience-epochs', type=int, default=10, metavar='N', help='patience epochs for Plateau LR scheduler (default: 10')
     parser.add_argument('--decay-rate', '--dr', type=float, default=0.1, metavar='RATE', help='LR decay rate (default: 0.1)')
     
+    
     # Dataset parameters
     parser.add_argument('--db-name', default='madrid', type=str, help='dataset name')
-    parser.add_argument('--data-path', default='/home/domenico/Desktop/test_modelli/datasets/Madrid/hsi/', type=str, help='dataset path') #/home/domenico/Desktop/dataset_experiments/CUBES_cal_alt/
-    parser.add_argument('--gt-path', default='/home/domenico/Desktop/test_modelli/datasets/Madrid/gt/', type=str, help='dataset path') #/home/domenico/Desktop/dataset_experiments/HSI_GT/npyFiles/
+    parser.add_argument('--data-path', default='/home/guillermo.vazquez/HS_Images/RecalibratedCubes/', type=str, help='dataset path') #/home/domenico/Desktop/dataset_experiments/CUBES_cal_alt/
+    parser.add_argument('--gt-path', default='/home/guillermo.vazquez/HS_Images/gt_map/', type=str, help='dataset path') #/home/domenico/Desktop/dataset_experiments/HSI_GT/npyFiles/
     parser.add_argument('--channels', type=int, default=25, help='Number of channels in the dataset')
     parser.add_argument('--train-pcg', default='0.7', type=float, help='Train set split percentage')
     parser.add_argument('--val-pcg', default='0.2', type=float, help='Validation set split percentage')
@@ -124,13 +128,17 @@ def get_args_parser():
     parser.add_argument('--num-workers', default=1, type=int)
     parser.add_argument('--pin-mem', action='store_true', help='Pin CPU memory in DataLoader for more efficient (sometimes) transfer to GPU.')
     parser.add_argument('--no-pin-mem', action='store_false', dest='pin_mem', help='')
+
+    parser.add_argument('--job-name', default='test', type=str, help='dataset name')
     parser.set_defaults(pin_mem=True)
 
     return parser
 
 def main(args):
     tools.init_distributed_mode(args)
-    temp_dir = Path(f"./tmp") #cannot be mktmpdir because of distributed training, otherwise other threads not know where the trained model is when finished
+    temp_dir = Path(f"/home/guillermo.vazquez/HSIBrain/tmp/") #cannot be mktmpdir because of distributed training, otherwise other threads not know where the trained model is when finished
+    tools.check_dirs(temp_dir)
+
 
     experiment_name = args.model_type
     experiment_description = f'{args.model_type} for brain tumor classification'
@@ -160,17 +168,27 @@ def main(args):
     with open(f'image_list_{args.db_name}.json', 'r') as f:
         image_list = json.load(f)
 
-    random.Random(seed).shuffle(image_list)
 
-    train_split = int(round(len(image_list)*(args.train_pcg)))
-    validation_split = int(round(len(image_list)*(args.val_pcg)))
+    """ RANDOM SPLITTING """
+    train_val_ids = []
+    tumor_IDs, nontumor_IDs = tools.get_tumor_IDs(image_list, args.gt_path)
+    
+    random.Random(seed).shuffle(tumor_IDs)
+    random.Random(seed).shuffle(nontumor_IDs)
 
-    test_ids = image_list[train_split+validation_split::]
-    train_val_ids = image_list[:train_split+validation_split]
-    random.Random(args.seed).shuffle(train_val_ids)
+    T_train_ids, T_val_ids, T_test_ids = tools.random_split(tumor_IDs, args.train_pcg,
+                                                            args.val_pcg, seed)
+    
+    train_ids, validation_ids, test_ids = tools.random_split(nontumor_IDs, args.train_pcg,
+                                                             args.val_pcg, seed)
 
-    train_ids = train_val_ids[:train_split]
-    validation_ids = train_val_ids[train_split::]
+    train_ids.extend(T_train_ids)
+    validation_ids.extend(T_val_ids)
+    test_ids.extend(T_test_ids)
+
+    train_val_ids.extend(train_ids)
+    train_val_ids.extend(validation_ids)
+    """ ******* """
 
     min_vect, max_vect = tools.min_max_norm_val(args.data_path, args.gt_path, train_val_ids, args.channels)
 
@@ -228,19 +246,19 @@ def main(args):
 
     if(args.model_type == 'ViT'):
         model = ViT(patchSize=args.patch_size, nBlocks=args.blocks, mlp_dim=args.mlp_dim, caf=args.caf, easyAtt=args.easyAtt, numHeads=args.heads, embedDim=args.embed_dim, numClasses=args.classes, dropout=args.drop, dropPath=args.dropPath_rate, channels=args.channels)
-    elif args.model_type == 'ViM':
-        model = VisionMamba(patch_size=args.patch_size, num_classes=args.classes, embed_dim=args.embed_dim, depth=args.blocks, drop_rate=args.drop, channels=args.channels, rms_norm=True, residual_in_fp32=True, fused_add_norm=True, final_pool_type='mean', if_abs_pos_embed=True, if_rope=False, if_rope_residual=False, bimamba_type="v2", if_cls_token=True, if_divide_out=True, use_middle_cls_token=False)
-        model.patch_embed = models.extraLayers.PatchEmbedding(args.patch_size, args.embed_dim) #changes the patchembedding layer to adapt to the input format
-    elif args.model_type == 'HSIMamba':
-        model = nn.Sequential(
-            models.extraLayers.PermuteLayer(0,2,3,1), #adapt the patch to the required input format (B, H, W, C)
-            HSIClassificationMambaModel(spatial_dim=args.patch_size, num_bands=args.channels, hidden_dim=args.embed_dim, output_dim=args.output_dim, delta_param_init=args.deltat, num_classes=args.classes)
-        )
-    elif args.model_type == 'MamTrans':
-        model = MamTrans(channels=args.channels, num_classes=args.classes, image_size=args.patch_size, emb_dim=args.embed_dim, num_heads=args.heads, num_layers=args.blocks, datasetname=args.db_name) #head_dim, hidden_dim
-    elif args.model_type == 'SSMamba':
-        model = mamba_SS_model(spa_img_size=(args.patch_size, args.patch_size), spe_img_size=(3,3), spa_patch_size=3, spe_patch_size=2, in_chans=args.channels, hid_chans = args.embed_dim, embed_dim=args.embed_dim, nclass=args.classes, drop_path=args.dropPath_rate, depth=args.blocks, bi=True, 
-                                norm_layer=nn.LayerNorm, global_pool=False, cls = True, fu=True)
+    # elif args.model_type == 'ViM':
+    #     model = VisionMamba(patch_size=args.patch_size, num_classes=args.classes, embed_dim=args.embed_dim, depth=args.blocks, drop_rate=args.drop, channels=args.channels, rms_norm=True, residual_in_fp32=True, fused_add_norm=True, final_pool_type='mean', if_abs_pos_embed=True, if_rope=False, if_rope_residual=False, bimamba_type="v2", if_cls_token=True, if_divide_out=True, use_middle_cls_token=False)
+    #     model.patch_embed = models.extraLayers.PatchEmbedding(args.patch_size, args.embed_dim) #changes the patchembedding layer to adapt to the input format
+    # elif args.model_type == 'HSIMamba':
+    #     model = nn.Sequential(
+    #         models.extraLayers.PermuteLayer(0,2,3,1), #adapt the patch to the required input format (B, H, W, C)
+    #         HSIClassificationMambaModel(spatial_dim=args.patch_size, num_bands=args.channels, hidden_dim=args.embed_dim, output_dim=args.output_dim, delta_param_init=args.deltat, num_classes=args.classes)
+    #     )
+    # elif args.model_type == 'MamTrans':
+    #     model = MamTrans(channels=args.channels, num_classes=args.classes, image_size=args.patch_size, emb_dim=args.embed_dim, num_heads=args.heads, num_layers=args.blocks, datasetname=args.db_name) #head_dim, hidden_dim
+    # elif args.model_type == 'SSMamba':
+    #     model = mamba_SS_model(spa_img_size=(args.patch_size, args.patch_size), spe_img_size=(3,3), spa_patch_size=3, spe_patch_size=2, in_chans=args.channels, hid_chans = args.embed_dim, embed_dim=args.embed_dim, nclass=args.classes, drop_path=args.dropPath_rate, depth=args.blocks, bi=True, 
+    #                             norm_layer=nn.LayerNorm, global_pool=False, cls = True, fu=True)
     elif args.model_type == 'HiT':
         if args.db_name == 'madrid':
             if args.large_features:
@@ -367,19 +385,19 @@ def main(args):
 
     if(args.model_type == 'ViT'):
         model = ViT(patchSize=args.patch_size, nBlocks=args.blocks, mlp_dim=args.mlp_dim, caf=args.caf, easyAtt=args.easyAtt, numHeads=args.heads, embedDim=args.embed_dim, numClasses=args.classes, dropout=args.drop, dropPath=args.dropPath_rate, channels=args.channels)
-    elif args.model_type == 'ViM':
-        model = VisionMamba(patch_size=args.patch_size, num_classes=args.classes, embed_dim=args.embed_dim, depth=args.blocks, drop_rate=args.drop, channels=args.channels, rms_norm=True, residual_in_fp32=True, fused_add_norm=True, final_pool_type='mean', if_abs_pos_embed=True, if_rope=False, if_rope_residual=False, bimamba_type="v2", if_cls_token=True, if_divide_out=True, use_middle_cls_token=True)
-        model.patch_embed = models.extraLayers.PatchEmbedding(args.patch_size, args.embed_dim)
-    elif args.model_type == 'HSIMamba':
-        model = nn.Sequential(
-            models.extraLayers.PermuteLayer(0,2,3,1),
-            HSIClassificationMambaModel(spatial_dim=args.patch_size, num_bands=args.channels, hidden_dim=args.embed_dim, output_dim=args.output_dim, delta_param_init=args.deltat, num_classes=args.classes)
-        )
-    elif args.model_type == 'MamTrans':
-        model = MamTrans(channels=args.channels, num_classes=args.classes, image_size=args.patch_size, emb_dim = args.embed_dim, num_heads=args.heads, num_layers=args.blocks, datasetname=args.db_name) #head_dim, hidden_dim
-    elif args.model_type == 'SSMamba':
-        model = mamba_SS_model(spa_img_size=(args.patch_size, args.patch_size), spe_img_size=(3,3), spa_patch_size=3, spe_patch_size=2, in_chans=args.channels, hid_chans = args.embed_dim, embed_dim=args.embed_dim, nclass=args.classes, drop_path=args.dropPath_rate, depth=args.blocks, bi=True, 
-                                norm_layer=nn.LayerNorm, global_pool=False, cls = True, fu=True)
+    # elif args.model_type == 'ViM':
+    #     model = VisionMamba(patch_size=args.patch_size, num_classes=args.classes, embed_dim=args.embed_dim, depth=args.blocks, drop_rate=args.drop, channels=args.channels, rms_norm=True, residual_in_fp32=True, fused_add_norm=True, final_pool_type='mean', if_abs_pos_embed=True, if_rope=False, if_rope_residual=False, bimamba_type="v2", if_cls_token=True, if_divide_out=True, use_middle_cls_token=True)
+    #     model.patch_embed = models.extraLayers.PatchEmbedding(args.patch_size, args.embed_dim)
+    # elif args.model_type == 'HSIMamba':
+    #     model = nn.Sequential(
+    #         models.extraLayers.PermuteLayer(0,2,3,1),
+    #         HSIClassificationMambaModel(spatial_dim=args.patch_size, num_bands=args.channels, hidden_dim=args.embed_dim, output_dim=args.output_dim, delta_param_init=args.deltat, num_classes=args.classes)
+    #     )
+    # elif args.model_type == 'MamTrans':
+    #     model = MamTrans(channels=args.channels, num_classes=args.classes, image_size=args.patch_size, emb_dim = args.embed_dim, num_heads=args.heads, num_layers=args.blocks, datasetname=args.db_name) #head_dim, hidden_dim
+    # elif args.model_type == 'SSMamba':
+    #     model = mamba_SS_model(spa_img_size=(args.patch_size, args.patch_size), spe_img_size=(3,3), spa_patch_size=3, spe_patch_size=2, in_chans=args.channels, hid_chans = args.embed_dim, embed_dim=args.embed_dim, nclass=args.classes, drop_path=args.dropPath_rate, depth=args.blocks, bi=True, 
+    #                             norm_layer=nn.LayerNorm, global_pool=False, cls = True, fu=True)
     elif args.model_type == 'HiT':
         if args.db_name == 'madrid':
             if args.large_features:

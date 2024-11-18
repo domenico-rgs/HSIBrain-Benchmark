@@ -4,6 +4,7 @@ Misc functions, including distributed helpers.
 Mostly copy-paste from torchvision references.
 """
 import os
+import random
 
 import torch
 import torch.distributed as dist
@@ -265,3 +266,39 @@ def init_distributed_mode(args):
                                          world_size=args.world_size, rank=args.rank)
     torch.distributed.barrier()
     setup_for_distributed(args.rank == 0)
+
+
+def get_tumor_IDs(IDs, gt_path, tumor_label=2):
+
+    tumor_IDs, non_tumor_IDs = [], []
+
+    for idp in IDs:
+        gt_img = np.load(f"{gt_path}{idp}.npy")
+        
+        if np.isin(tumor_label, np.unique(gt_img).astype(int)):
+            tumor_IDs.append(idp)
+        else:
+            non_tumor_IDs.append(idp)
+    
+    return tumor_IDs, non_tumor_IDs
+
+
+def random_split(image_list, train_pctg, val_pctg, seed):
+
+    train_split = int(round(len(image_list)*(train_pctg)))
+    validation_split = int(round(len(image_list)*(val_pctg)))
+
+    train_val_ids = image_list[:train_split+validation_split]
+    random.Random(seed).shuffle(train_val_ids)
+
+    train_ids = train_val_ids[:train_split]
+    validation_ids = train_val_ids[train_split::]
+    test_ids = image_list[train_split+validation_split::]
+
+    return train_ids, validation_ids, test_ids
+
+
+def check_dirs(*args):
+	for dir_ in args:
+		if not os.path.exists(dir_):
+			os.makedirs(dir_)
