@@ -168,3 +168,6 @@ mlruns/
 runs/
 sbatch.sh
 test.ipynb
+
+
+training_commands.txt
