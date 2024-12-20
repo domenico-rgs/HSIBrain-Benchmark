@@ -35,6 +35,8 @@ from models.SpectralFormer import SpectralFormer
 from models.SSAN import SSAN
 from models.GhostNet import GhostNet
 from models.Hybrid3D_2D import Hyb3D_2D
+from models.RSSAN import RSSAN
+from models.LiteDepthwiseNet import LiteDwNet
 
 
 import models.extraLayers
@@ -45,7 +47,7 @@ import utils.tools as tools
 import seaborn as sns
 
 import matplotlib
-matplotlib.use('TKAgg')
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 import mlflow
@@ -269,6 +271,12 @@ def main(args):
 		
 	elif args.model_type == 'Hyb3D_2D':
 		model = Hyb3D_2D(in_chns=args.channels, patch_size=args.patch_size, out_classes=args.classes)
+
+	elif args.model_type == 'RSSAN':
+		model = RSSAN(in_chns=args.channels, patch_size=args.patch_size, out_classes=args.classes)
+
+	elif args.model_type == 'LiteDwNet':
+		model = LiteDwNet(in_chns=args.channels, patch_size=args.patch_size, out_classes=args.classes)
 		
 	# elif args.model_type == 'ViM':
 	#     model = VisionMamba(patch_size=args.patch_size, num_classes=args.classes, embed_dim=args.embed_dim, depth=args.blocks, drop_rate=args.drop, channels=args.channels, rms_norm=True, residual_in_fp32=True, fused_add_norm=True, final_pool_type='mean', if_abs_pos_embed=True, if_rope=False, if_rope_residual=False, bimamba_type="v2", if_cls_token=True, if_divide_out=True, use_middle_cls_token=False)
@@ -348,6 +356,9 @@ def main(args):
 
 		train_stats = train_epoch(model, data_loader_train, optimizer, device, criterion, args)
 		val_stats = evaluate(data_loader_val, model, device, criterion, args)
+
+		# print(f"******************* Model {args.model_type} passed OK")
+		# quit()
 	
 		if args.distributed:
 			dist.barrier()
@@ -424,6 +435,12 @@ def main(args):
 		
 	elif args.model_type == 'Hyb3D_2D':
 		model = Hyb3D_2D(in_chns=args.channels, patch_size=args.patch_size, out_classes=args.classes)
+
+	elif args.model_type == 'RSSAN':
+		model = RSSAN(in_chns=args.channels, patch_size=args.patch_size, out_classes=args.classes)
+
+	elif args.model_type == 'LiteDwNet':
+		model = LiteDwNet(in_chns=args.channels, patch_size=args.patch_size, out_classes=args.classes)
 	# elif args.model_type == 'ViM':
 	#     model = VisionMamba(patch_size=args.patch_size, num_classes=args.classes, embed_dim=args.embed_dim, depth=args.blocks, drop_rate=args.drop, channels=args.channels, rms_norm=True, residual_in_fp32=True, fused_add_norm=True, final_pool_type='mean', if_abs_pos_embed=True, if_rope=False, if_rope_residual=False, bimamba_type="v2", if_cls_token=True, if_divide_out=True, use_middle_cls_token=True)
 	#     model.patch_embed = models.extraLayers.PatchEmbedding(args.patch_size, args.embed_dim)
@@ -528,6 +545,7 @@ def main(args):
 			mlflow.log_artifact(os.path.join(temp_dir,f'{run_name}_{test_image}.png'), run_name)
 			mlflow.log_artifact(os.path.join(temp_dir,f'{run_name}_{test_image}_prob.png'), run_name)
 
+	print(f"----------> Model {args.model_type} finished run")
 
 	if tools.is_main_process():
 		mlflow.end_run()
