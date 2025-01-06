@@ -6,7 +6,7 @@ async-timeout==4.0.3
 attrs==23.1.0
 blinker==1.7.0
 # causal-conv1d @ file:///home/zhulianghui/VisionProjects/mamba/lib/causal_conv1d-1.0.0%2Bcu118torch2.1cxx11abiFALSE-cp310-cp310-linux_x86_64.whl#sha256=79a4bab633ebff031e615d5e8ba396b0dc0c046f4406980ee238fb86a9090038
-certifi==2023.11.17
+certifi==2024.7.4
 charset-normalizer==3.3.2
 click==8.1.7
 cloudpickle==3.0.0
