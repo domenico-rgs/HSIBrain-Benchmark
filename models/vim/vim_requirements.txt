@@ -106,4 +106,4 @@ Werkzeug==3.0.1
 xxhash==3.4.1
 yapf==0.40.2
 yarl==1.9.4
-zipp==3.17.0
+zipp==3.19.1
