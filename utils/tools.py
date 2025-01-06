@@ -8,10 +8,13 @@ import random
 
 import torch
 import torch.distributed as dist
+import random
 
 import cv2
 
 import numpy as np
+
+import datetime
 
 def augment_patches(samps, labs):
 	if len(labs.shape)>2:
@@ -132,17 +135,25 @@ def get_cube_and_GT(idp, data_path, gt_path, patch_size, minMaxVects):
 def loadImagesData(hsi_path, gt_path, imglist, patch_size, labelsToDensify, labelsToAugment, minMaxVects):
     data_samps = []
     gt_labs = []
-         
+    
+    all_counts_notDens = np.zeros(4, dtype=int)
+    all_counts_dens = np.zeros(4, dtype=int)
     for imgID in imglist:
         hsi_dataset= np.load(hsi_path+imgID+'.npy')
-        labels = np.load(gt_path+imgID+'.npy')
+        labels = np.load(gt_path+imgID+'.npy').astype(np.int8)
+
+        unique_lab, lab_count_notDens = np.unique(labels[labels != 0]-1, return_counts=True)
+        all_counts_notDens[unique_lab] += lab_count_notDens
 
         if len(labelsToDensify) != 0:
             labels = densify_gt(labels, labelsToDensify)
 
+        unique_lab, lab_count_dens = np.unique(labels[labels != 0]-1, return_counts=True)
+        all_counts_dens[unique_lab] += lab_count_dens
+
         hsi_dataset = hsi_dataset-minMaxVects[0]/(minMaxVects[1]-minMaxVects[0]) #min-max normalization
 
-        for l in np.unique(labels)[1:]: #labels 0 -> background
+        for l in np.unique(labels)[1:]: #labels 0 -> background, assumption: each image has background
             if patch_size>1:
                 label_mask = (labels==l).astype('uint8')
                 c_yx = np.stack(np.where(label_mask>0), axis=1)
@@ -178,7 +189,7 @@ def loadImagesData(hsi_path, gt_path, imglist, patch_size, labelsToDensify, labe
     gt_labs = np.vstack(gt_labs).astype(int)
     gt_labs = np.squeeze(gt_labs)
 
-    return data_samps, gt_labs-1 #0: healthy, 1: tumor, 2: blood, 3: duraMater
+    return data_samps, gt_labs-1, all_counts_notDens, all_counts_dens #0: healthy, 1: tumor, 2: blood, 3: duraMater
 
 def dilate(img, k=3):
 	st_elem = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(k,k))
@@ -223,25 +234,20 @@ def setup_for_distributed(is_master):
 
     __builtin__.print = print
 
-
 def get_world_size():
     return dist.get_world_size()
-
 
 def get_rank():
     if torch.distributed.is_initialized():
         return dist.get_rank()
     return 0
 
-
 def is_main_process():
     return get_rank() == 0
-
 
 def save_on_master(*args, **kwargs):
     if is_main_process():
         torch.save(*args, **kwargs)
-
 
 def init_distributed_mode(args):
     if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
@@ -260,13 +266,13 @@ def init_distributed_mode(args):
 
     torch.cuda.set_device(args.gpu)
     args.dist_backend = 'nccl'
+    min_timeout = 30
     print('| distributed init (rank {}): {}'.format(
         args.rank, args.dist_url), flush=True)
     torch.distributed.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
-                                         world_size=args.world_size, rank=args.rank)
+                                         world_size=args.world_size, rank=args.rank, timeout=datetime.timedelta(minutes=min_timeout))
     torch.distributed.barrier()
     setup_for_distributed(args.rank == 0)
-
 
 def get_tumor_IDs(IDs, gt_path, tumor_label=2):
 
@@ -282,7 +288,6 @@ def get_tumor_IDs(IDs, gt_path, tumor_label=2):
     
     return tumor_IDs, non_tumor_IDs
 
-
 def random_split(image_list, train_pctg, val_pctg, seed):
 
     train_split = int(round(len(image_list)*(train_pctg)))
@@ -297,8 +302,8 @@ def random_split(image_list, train_pctg, val_pctg, seed):
 
     return train_ids, validation_ids, test_ids
 
-
 def check_dirs(*args):
 	for dir_ in args:
 		if not os.path.exists(dir_):
 			os.makedirs(dir_)
+
