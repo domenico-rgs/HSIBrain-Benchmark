@@ -33,12 +33,12 @@ from models.HiT import ConvPermuteMLP, HiT
 from models.HSIMamba import HSIClassificationMambaModel
 from models.Hybrid3D_2D import Hyb3D_2D
 from models.LiteDepthwiseNet import LiteDwNet
-from models.mamtrans.MamTrans import MamTrans
+# from models.mamtrans.MamTrans import MamTrans
 from models.RSSAN import RSSAN
 from models.SpectralFormer import SpectralFormer
 from models.SSAN import SSAN
 from models.ssmamba.ssmamba import mamba_SS_model
-from models.vim.models_mamba import VisionMamba
+# from models.vim.models_mamba import VisionMamba
 from models.ViT import ViT
 from utils.focal import FocalLoss
 from utils.LARC import LARC
@@ -67,7 +67,8 @@ def get_args_parser():
                         default="file://" + os.getcwd() + "/mlruns_final_complete",
                         type=str, help='MLFlow tracking URI'
                         )
-
+    parser.add_argument("--job-name", default="", type=str, help="Job name")
+    
     # Basic parameters
     parser.add_argument('--model-type', default='MamTrans',
                         type=str, help='Model type (default: "ViT")')
@@ -78,6 +79,7 @@ def get_args_parser():
     parser.add_argument('--device', default='cuda',
                         help='Device to use for training / testing')
     parser.add_argument('--seed', default=0, type=int)
+    parser.add_argument('--norm-fn', default="l2", type=str)
 
     # ViT parameters
     parser.add_argument('--mlp-dim', default=4, type=int,
@@ -296,7 +298,12 @@ def main(args):
     experiment_name = args.model_type
     experiment_description = f'{args.model_type} for brain tumor classification'
     # args.job_name if run with submitit
-    run_name = f'{args.job_name}_{args.model_type}-{args.db_name}-'\
+    if not args.job_name:
+        job_name_str = ""
+    else:
+        job_name_str = f"{args.job_name}_"
+    
+    run_name = f'{job_name_str}{args.model_type}-{args.db_name}-'\
                f'{args.patch_size}-run-{datetime.now().strftime("%Y%m%d_%H%M%S")}'
     run_description = f'Analyze the behavior of the {args.model_type}'\
                       f'using a recent version of the {args.db_name} HSI dataset.'
@@ -370,21 +377,14 @@ def main(args):
         image_list = json.load(f)
 
     """ RANDOM SPLITTING """
+
     train_val_ids = []
-    tumor_IDs, nontumor_IDs = tools.get_tumor_IDs(image_list, args.gt_path)
 
-    random.Random(seed).shuffle(tumor_IDs)
-    random.Random(seed).shuffle(nontumor_IDs)
+    test_pcg = 1-(args.train_pcg+args.val_pcg)
 
-    T_train_ids, T_val_ids, T_test_ids = tools.random_split(tumor_IDs, args.train_pcg,
-                                                            args.val_pcg, seed)
-
-    train_ids, validation_ids, test_ids = tools.random_split(nontumor_IDs, args.train_pcg,
-                                                             args.val_pcg, seed)
-
-    train_ids.extend(T_train_ids)
-    validation_ids.extend(T_val_ids)
-    test_ids.extend(T_test_ids)
+    train_ids, validation_ids, test_ids = tools.random_patient_split(image_list, args.gt_path,
+																	 args.val_pcg,
+																	 test_pcg, args.seed)
 
     print("Train set:", train_ids)
     print("Validation set:", validation_ids)
@@ -398,10 +398,14 @@ def main(args):
         args.data_path, args.gt_path, train_val_ids, args.channels)
 
     if not args.inference:
-        train_data, train_labels, train_lab_count_noDens, _ = tools.loadImagesData(
-            args.data_path, args.gt_path, train_ids, patch_size=args.patch_size, labelsToDensify=args.densify_labels, labelsToAugment=args.augment_labels, minMaxVects=[min_vect, max_vect])
-        val_data, val_labels, val_lab_count_noDens, _ = tools.loadImagesData(
-            args.data_path, args.gt_path, validation_ids, patch_size=args.patch_size, labelsToDensify=[], labelsToAugment=[], minMaxVects=[min_vect, max_vect])
+        train_data, train_labels, train_lab_count_noDens, _ = tools.loadImagesData(args.data_path, args.gt_path, train_ids,
+                                                                                   patch_size=args.patch_size, labelsToDensify=args.densify_labels,
+                                                                                   labelsToAugment=args.augment_labels, minMaxVects=[min_vect, max_vect],
+                                                                                   norm_fn=args.norm_fn)
+        val_data, val_labels, val_lab_count_noDens, _ = tools.loadImagesData(args.data_path, args.gt_path, validation_ids,
+                                                                             patch_size=args.patch_size, labelsToDensify=[],
+                                                                             labelsToAugment=[], minMaxVects=[min_vect, max_vect],
+                                                                             norm_fn=args.norm_fn)
 
         counts = train_lab_count_noDens + val_lab_count_noDens
         # unique, counts = np.unique(fnp.concatenate((train_lab_count_noDens, val_lab_count_noDens)), return_counts=True)
@@ -601,8 +605,10 @@ def main(args):
 
     # TESTING
     for test_image in test_ids:
-        hsi, gt, [height, width] = tools.get_cube_and_GT(
-            test_image, args.data_path, args.gt_path, patch_size=args.patch_size, minMaxVects=[min_vect, max_vect])
+        hsi, gt, [height, width] = tools.get_cube_and_GT(test_image, args.data_path, args.gt_path,
+                                                         patch_size=args.patch_size,
+                                                         minMaxVects=[min_vect, max_vect],
+                                                         norm_fn=args.norm_fn)
 
         hsi = torch.from_numpy(hsi).type(torch.FloatTensor)
         gt = torch.from_numpy(gt.astype(np.int64)).type(torch.LongTensor)
